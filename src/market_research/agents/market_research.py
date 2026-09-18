@@ -1,0 +1,86 @@
+"""Market Research agent: a small ReAct-style LangGraph subgraph.
+
+Loops between calling Gemini and executing any tool/function calls it
+requests, until the model responds with plain text (the trend summary).
+"""
+from datetime import datetime
+
+from google.genai import types
+from langgraph.graph import END, START, StateGraph
+
+from market_research import llm
+from market_research.state import PipelineState
+from market_research.tools import call_tool, get_tools
+
+SYSTEM_INSTRUCTION = """
+You are a fashion market research agent preparing a trend analysis for a
+summer sunglasses campaign.
+
+Your goal:
+1. Explore current fashion trends related to sunglasses using web search.
+2. Review the internal product catalog to identify items that align with
+   those trends.
+3. Recommend one or more products from the catalog that best match
+   emerging trends.
+
+Once your analysis is complete, respond with plain text (no more tool
+calls) summarizing:
+- The top 2-3 trends you found.
+- The product(s) from the catalog that fit these trends.
+- A justification of why they are a good fit for the summer campaign.
+""".strip()
+
+
+def _initial_messages() -> list[types.Content]:
+    today = datetime.now().strftime("%Y-%m-%d")
+    prompt = f"Today's date is {today}. Begin your research."
+    return [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
+
+
+def call_model(state: PipelineState) -> dict:
+    messages = state.get("messages") or _initial_messages()
+    response = llm.generate(contents=messages, tools=get_tools(), system_instruction=SYSTEM_INSTRUCTION)
+    model_content = response.candidates[0].content
+    messages = messages + [model_content]
+
+    if response.function_calls:
+        return {"messages": messages}
+    return {"messages": messages, "trend_summary": response.text or ""}
+
+
+def route_after_model(state: PipelineState) -> str:
+    last = state["messages"][-1]
+    has_call = any(getattr(part, "function_call", None) for part in (last.parts or []))
+    return "call_tools" if has_call else END
+
+
+def call_tools(state: PipelineState) -> dict:
+    messages = state["messages"]
+    last = messages[-1]
+    response_parts = []
+    for part in last.parts:
+        fc = getattr(part, "function_call", None)
+        if not fc:
+            continue
+        try:
+            result = call_tool(fc.name, dict(fc.args or {}))
+            response_parts.append(types.Part.from_function_response(name=fc.name, response={"result": result}))
+        except Exception as e:
+            response_parts.append(types.Part.from_function_response(name=fc.name, response={"error": str(e)}))
+    messages = messages + [types.Content(role="user", parts=response_parts)]
+    return {"messages": messages}
+
+
+def build_graph():
+    graph = StateGraph(PipelineState)
+    graph.add_node("call_model", call_model)
+    graph.add_node("call_tools", call_tools)
+    graph.add_edge(START, "call_model")
+    graph.add_conditional_edges("call_model", route_after_model, {"call_tools": "call_tools", END: END})
+    graph.add_edge("call_tools", "call_model")
+    return graph.compile()
+
+
+def market_research_agent() -> str:
+    result = build_graph().invoke({"messages": []})
+    return result["trend_summary"]
