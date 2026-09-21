@@ -12,14 +12,15 @@ from market_research import llm
 from market_research.state import PipelineState
 from market_research.tools import call_tool, get_tools
 
-SYSTEM_INSTRUCTION = """
+def _system_instruction(product_category: str) -> str:
+    return f"""
 You are a fashion market research agent preparing a trend analysis for a
-summer sunglasses campaign.
+{product_category} campaign.
 
 Your goal:
-1. Explore current fashion trends related to sunglasses using web search.
-2. Review the internal product catalog to identify items that align with
-   those trends.
+1. Explore current fashion trends related to {product_category} using web search.
+2. Review the internal product catalog (category="{product_category}") to identify
+   items that align with those trends.
 3. Recommend one or more products from the catalog that best match
    emerging trends.
 
@@ -27,20 +28,23 @@ Once your analysis is complete, respond with plain text (no more tool
 calls) summarizing:
 - The top 2-3 trends you found.
 - The product(s) from the catalog that fit these trends.
-- A justification of why they are a good fit for the summer campaign.
+- A justification of why they are a good fit for the campaign.
 """.strip()
 
 
-def _initial_messages() -> list[types.Content]:
+def _initial_messages(product_category: str) -> list[types.Content]:
     today = datetime.now().strftime("%Y-%m-%d")
-    prompt = f"Today's date is {today}. Begin your research."
+    prompt = f"Today's date is {today}. Begin your research on {product_category}."
     return [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
 
 
 def call_model(state: PipelineState) -> dict:
     """Call Gemini with the running message history and append its reply."""
-    messages = state.get("messages") or _initial_messages()
-    response = llm.generate(contents=messages, tools=get_tools(), system_instruction=SYSTEM_INSTRUCTION)
+    product_category = state.get("product_category", "sunglasses")
+    messages = state.get("messages") or _initial_messages(product_category)
+    response = llm.generate(
+        contents=messages, tools=get_tools(), system_instruction=_system_instruction(product_category)
+    )
     if not response.candidates:
         raise RuntimeError("Gemini returned no candidates (response may have been blocked)")
     model_content = response.candidates[0].content
@@ -87,7 +91,7 @@ def build_graph():
     return graph.compile()
 
 
-def market_research_agent() -> str:
+def market_research_agent(product_category: str = "sunglasses") -> str:
     """Run the market research subgraph standalone and return the trend summary."""
-    result = build_graph().invoke({"messages": []})
+    result = build_graph().invoke({"messages": [], "product_category": product_category})
     return result["trend_summary"]

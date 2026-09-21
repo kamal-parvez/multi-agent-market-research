@@ -50,7 +50,7 @@ def tavily_search_tool(query: str, max_results: int = 5, include_images: bool = 
 
 SEARCH_TOOL_DECLARATION = types.FunctionDeclaration(
     name="tavily_search_tool",
-    description="Perform a web search for sunglasses/fashion trends.",
+    description="Perform a web search for product/fashion trends.",
     parameters=types.Schema(
         type=types.Type.OBJECT,
         properties={

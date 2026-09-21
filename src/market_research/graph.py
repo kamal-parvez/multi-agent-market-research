@@ -27,6 +27,7 @@ def build_pipeline():
     return graph.compile()
 
 
-def run_campaign_pipeline(skip_image: bool = False) -> PipelineState:
+def run_campaign_pipeline(product_category: str = "sunglasses", skip_image: bool = False) -> PipelineState:
     """Build and run the full campaign pipeline, returning the final state."""
-    return cast(PipelineState, build_pipeline().invoke({"messages": [], "skip_image": skip_image}))
+    initial_state: PipelineState = {"messages": [], "product_category": product_category, "skip_image": skip_image}
+    return cast(PipelineState, build_pipeline().invoke(initial_state))

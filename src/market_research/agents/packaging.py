@@ -9,12 +9,51 @@ from market_research.state import PipelineState
 
 SYSTEM_INSTRUCTION = "You are a marketing communication expert writing elegant campaign summaries for executives."
 
+CATEGORY_EMOJI = {
+    "sunglasses": "🕶️",
+    "shoes": "👟",
+    "watches": "⌚",
+    "bags": "👜",
+    "hats": "🧢",
+    "wrist watches": "⌚",
+    "t-shirts": "👕",
+    "fashion sneakers": "👟",
+    "sneakers": "👟",
+    "flats": "🥿",
+    "slippers": "🥿",
+    "blouses & button-down shirts": "👚",
+    "tunics": "👚",
+    "tanks & camis": "👚",
+    "pumps": "👠",
+    "platforms & wedges": "👠",
+    "heeled sandals": "👡",
+    "sandals": "👡",
+    "dresses": "👗",
+    "loafers & slip-ons": "👞",
+    "road running": "🏃",
+    "jeans": "👖",
+    "leggings": "👖",
+    "pendant necklaces": "📿",
+    "necklaces": "📿",
+    "rings": "💍",
+    "drop & dangle": "💎",
+    "stud": "💎",
+    "pullovers": "🧥",
+    "fashion hoodies & sweatshirts": "🧥",
+    "wallets": "👛",
+    "baseball caps": "🧢",
+    "socks": "🧦",
+    "ankle & bootie": "👢",
+    "boots": "👢",
+}
+
 
 def packaging_agent(
     trend_summary: str,
     image_path: str,
     quote: str,
     justification: str,
+    product_category: str = "sunglasses",
     output_path: Path | None = None,
 ) -> str:
     """Rewrite the trend summary for executives and assemble the markdown report."""
@@ -23,7 +62,8 @@ def packaging_agent(
         system_instruction=SYSTEM_INSTRUCTION,
     )
 
-    markdown_content = f"""# 🕶️ Summer Sunglasses Campaign – Executive Summary
+    emoji = CATEGORY_EMOJI.get(product_category.strip().lower(), "🛍️")
+    markdown_content = f"""# {emoji} {product_category.title()} Campaign – Executive Summary
 
 ## 📊 Refined Trend Insights
 {beautified_summary}
@@ -58,5 +98,6 @@ def packaging_node(state: PipelineState) -> dict:
         image_path=state.get("image_path", ""),
         quote=state.get("quote", ""),
         justification=state.get("justification", ""),
+        product_category=state.get("product_category", "sunglasses"),
     )
     return {"report_path": report_path}

@@ -3,7 +3,11 @@ from typing import Any, TypedDict
 
 
 class PipelineState(TypedDict, total=False):
-    # Market Research agent 
+    # Run options
+    product_category: str
+    skip_image: bool
+
+    # Market Research agent
     messages: list[Any]
     trend_summary: str
 
@@ -18,6 +22,3 @@ class PipelineState(TypedDict, total=False):
 
     # Packaging agent
     report_path: str
-
-    # Run options
-    skip_image: bool

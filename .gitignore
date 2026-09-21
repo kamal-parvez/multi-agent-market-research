@@ -8,3 +8,7 @@ output/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 data/catalog.original.csv.bak
+data/catalog.sunglasses-only.csv.bak
+data/catalog.old-regex-based.csv.bak
+data/raw/
+data/category_index.json
