@@ -3,8 +3,7 @@ from typing import Any, TypedDict
 
 
 class PipelineState(TypedDict, total=False):
-    # Market Research agent (internal ReAct loop). Holds google.genai.types.Content
-    # objects, not plain dicts -- typed Any here since TypedDict can't express that.
+    # Market Research agent 
     messages: list[Any]
     trend_summary: str
 

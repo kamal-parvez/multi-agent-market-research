@@ -25,6 +25,7 @@ QUOTE_SCHEMA = {
 
 
 def copywriter_agent(image_path: str, trend_summary: str) -> dict:
+    """Write a campaign quote and justification from the campaign image and trend summary."""
     contents: list = []
     image_note = ""
     if image_path:
@@ -51,11 +52,14 @@ Write a short, elegant campaign quote and explain why it matches the {'image and
         response_mime_type="application/json",
         response_schema=QUOTE_SCHEMA,
     )
+    if response.text is None:
+        raise RuntimeError("Gemini returned no text (response may have been blocked)")
     parsed = json.loads(response.text)
     parsed["image_path"] = image_path
     return parsed
 
 
 def copywriter_node(state: PipelineState) -> dict:
-    result = copywriter_agent(state["image_path"], state["trend_summary"])
+    """LangGraph node wrapper for copywriter_agent."""
+    result = copywriter_agent(state.get("image_path", ""), state.get("trend_summary", ""))
     return {"quote": result["quote"], "justification": result["justification"]}

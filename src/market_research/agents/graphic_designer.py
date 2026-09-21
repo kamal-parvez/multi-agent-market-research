@@ -23,6 +23,7 @@ PROMPT_CAPTION_SCHEMA = {
 
 
 def graphic_designer_agent(trend_insights: str, caption_style: str = "short punchy") -> dict:
+    """Turn trend insights into an image prompt, caption, and generated image."""
     user_prompt = f"""
 Trend insights:
 {trend_insights}
@@ -41,7 +42,8 @@ marketing caption in style: {caption_style}.
 
 
 def graphic_designer_node(state: PipelineState) -> dict:
+    """LangGraph node wrapper for graphic_designer_agent, honoring skip_image."""
     if state.get("skip_image"):
         return {"image_path": "", "image_prompt": "(skipped)", "caption": "(skipped)"}
-    result = graphic_designer_agent(state["trend_summary"])
+    result = graphic_designer_agent(state.get("trend_summary", ""))
     return {"image_path": result["image_path"], "image_prompt": result["prompt"], "caption": result["caption"]}

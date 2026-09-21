@@ -11,10 +11,12 @@ TOOL_FUNCTIONS = {
 
 
 def get_tools() -> list[types.Tool]:
+    """Return the Gemini tool declarations for all registered tools."""
     return [types.Tool(function_declarations=[SEARCH_TOOL_DECLARATION, CATALOG_TOOL_DECLARATION])]
 
 
 def call_tool(name: str, args: dict) -> object:
+    """Dispatch a tool call by name to its registered function."""
     if name not in TOOL_FUNCTIONS:
         raise KeyError(f"Unknown tool: {name}")
     return TOOL_FUNCTIONS[name](**args)

@@ -38,8 +38,11 @@ def _initial_messages() -> list[types.Content]:
 
 
 def call_model(state: PipelineState) -> dict:
+    """Call Gemini with the running message history and append its reply."""
     messages = state.get("messages") or _initial_messages()
     response = llm.generate(contents=messages, tools=get_tools(), system_instruction=SYSTEM_INSTRUCTION)
+    if not response.candidates:
+        raise RuntimeError("Gemini returned no candidates (response may have been blocked)")
     model_content = response.candidates[0].content
     messages = messages + [model_content]
 
@@ -49,13 +52,15 @@ def call_model(state: PipelineState) -> dict:
 
 
 def route_after_model(state: PipelineState) -> str:
-    last = state["messages"][-1]
+    """Route to call_tools if the last model reply requested a function call, else end."""
+    last = state.get("messages", [])[-1]
     has_call = any(getattr(part, "function_call", None) for part in (last.parts or []))
     return "call_tools" if has_call else END
 
 
 def call_tools(state: PipelineState) -> dict:
-    messages = state["messages"]
+    """Execute every function call in the last model reply and append the results."""
+    messages = state.get("messages", [])
     last = messages[-1]
     response_parts = []
     for part in last.parts:
@@ -72,6 +77,7 @@ def call_tools(state: PipelineState) -> dict:
 
 
 def build_graph():
+    """Compile the call_model <-> call_tools ReAct subgraph."""
     graph = StateGraph(PipelineState)
     graph.add_node("call_model", call_model)
     graph.add_node("call_tools", call_tools)
@@ -82,5 +88,6 @@ def build_graph():
 
 
 def market_research_agent() -> str:
+    """Run the market research subgraph standalone and return the trend summary."""
     result = build_graph().invoke({"messages": []})
     return result["trend_summary"]

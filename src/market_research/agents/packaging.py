@@ -17,6 +17,7 @@ def packaging_agent(
     justification: str,
     output_path: Path | None = None,
 ) -> str:
+    """Rewrite the trend summary for executives and assemble the markdown report."""
     beautified_summary = llm.generate_text(
         f'Please rewrite the following trend summary to be clear, professional, and engaging for a CEO audience:\n\n"""{trend_summary.strip()}"""',
         system_instruction=SYSTEM_INSTRUCTION,
@@ -51,10 +52,11 @@ def packaging_agent(
 
 
 def packaging_node(state: PipelineState) -> dict:
+    """LangGraph node wrapper for packaging_agent."""
     report_path = packaging_agent(
-        trend_summary=state["trend_summary"],
-        image_path=state["image_path"],
-        quote=state["quote"],
-        justification=state["justification"],
+        trend_summary=state.get("trend_summary", ""),
+        image_path=state.get("image_path", ""),
+        quote=state.get("quote", ""),
+        justification=state.get("justification", ""),
     )
     return {"report_path": report_path}

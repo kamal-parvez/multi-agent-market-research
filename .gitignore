@@ -5,3 +5,6 @@ __pycache__/
 output/
 *.egg-info/
 .DS_Store
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+data/catalog.original.csv.bak

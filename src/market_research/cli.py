@@ -18,9 +18,9 @@ def run(
 
     console.print("\n[bold green]Pipeline complete.[/bold green]")
     if result.get("image_path"):
-        console.print(f"[bold]Image:[/bold] {result['image_path']}")
+        console.print(f"[bold]Image:[/bold] {result.get('image_path')}")
     console.print(f"[bold]Quote:[/bold] {result.get('quote', '')}")
-    console.print(f"[bold]Report:[/bold] {result['report_path']}")
+    console.print(f"[bold]Report:[/bold] {result.get('report_path', '')}")
 
 
 if __name__ == "__main__":

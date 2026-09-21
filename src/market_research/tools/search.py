@@ -51,12 +51,12 @@ def tavily_search_tool(query: str, max_results: int = 5, include_images: bool = 
 SEARCH_TOOL_DECLARATION = types.FunctionDeclaration(
     name="tavily_search_tool",
     description="Perform a web search for sunglasses/fashion trends.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "Search query."},
-            "max_results": {"type": "integer", "description": "Maximum number of results."},
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "query": types.Schema(type=types.Type.STRING, description="Search query."),
+            "max_results": types.Schema(type=types.Type.INTEGER, description="Maximum number of results."),
         },
-        "required": ["query"],
-    },
+        required=["query"],
+    ),
 )

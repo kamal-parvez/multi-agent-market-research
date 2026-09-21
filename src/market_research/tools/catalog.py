@@ -20,13 +20,13 @@ def product_catalog_tool(max_items: int = 10, catalog_path: Path = DEFAULT_CATAL
 CATALOG_TOOL_DECLARATION = types.FunctionDeclaration(
     name="product_catalog_tool",
     description="Get sunglasses products from the internal inventory catalog.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "max_items": {
-                "type": "integer",
-                "description": "Maximum number of catalog items to return.",
-            }
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "max_items": types.Schema(
+                type=types.Type.INTEGER,
+                description="Maximum number of catalog items to return.",
+            )
         },
-    },
+    ),
 )
