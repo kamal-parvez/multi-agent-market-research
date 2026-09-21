@@ -1,160 +1,144 @@
-# Multi-Agent Market Research — Project Context
+**Multi Agent Market Research**
 
-This file exists so a new chat session (or anyone else) can pick up this project
-without re-deriving everything from scratch. If you're Claude starting fresh:
-read this whole file before touching code.
+This project is a four agent pipeline that researches fashion trends for any product category, not only sunglasses, and turns that research into a marketing campaign ready for review. A single run produces a trend analysis, a generated campaign image, a marketing quote, and an executive summary report.
 
-## What this project is
+The pipeline is built with LangGraph (https://github.com/langchain-ai/langgraph) as a real state graph orchestrator rather than a script of chained function calls. It uses Google Gemini for text reasoning, Hugging Face for image generation, and Tavily for live web search. Product data comes from a real Amazon product dataset rather than a small set of sample rows written by hand.
 
-A rebuild of the DeepLearning.AI lab notebook in `study/M5_UGL_2.ipynb` — a
-4-agent pipeline that researches sunglasses fashion trends, generates a
-campaign image, writes a marketing quote, and packages everything into an
-executive markdown report — as a **from-scratch, plain-Python, CLI-driven
-package**, replacing the notebook's hand-chained function calls with a real
-**LangGraph** orchestrator (explicit state graph, conditional edges, a proper
-tool-calling loop).
+**How it works**
 
-The full plan (with all the reasoning behind each decision) lives at:
-`/Users/kamalparvez/.claude/plans/cuddly-drifting-honey.md` — read that too if
-it still exists; it has more detail than this file.
+Four agents run in sequence, and each one reads from and writes to a shared pipeline state.
 
-## Status: v1 build complete and working
+1. Market Research. This agent repeatedly calls Gemini and lets it request tool calls, such as a web search through Tavily or a lookup against the internal product catalog, until it produces a trend summary for whatever product category was requested. This loop is often called the ReAct pattern, meaning the model alternates between reasoning about what to do next and acting on that decision through a tool.
+2. Graphic Designer. This agent turns the trend summary into an image generation prompt and a caption, then generates a campaign image using Hugging Face and the FLUX.1 schnell model.
+3. Copywriter. This agent looks at both the generated image and the trend summary together, a technique known as multimodal input, and writes a short campaign quote along with a justification for why that quote fits.
+4. Packaging. This agent rewrites the trend summary for an executive audience and assembles everything produced so far into a markdown report.
 
-All 6 build steps done, tested end-to-end via real runs (not just unit
-tests — actual Gemini/HF/Tavily API calls). Git repo initialized at project
-root, `main` branch, one initial commit (`26b9096`) containing everything
-except `.env`, `.venv/`, `output/`, `__pycache__/` (see `.gitignore`).
+**Setup**
 
-Run it: `market-research` (installed as a console script; or
-`python -m market_research.cli`) — runs the full pipeline. `--skip-image`
-flag skips image generation for cheap/fast dev iteration.
+This project requires Python 3.11 or newer and API keys for Google Gemini, Tavily, and Hugging Face.
 
-## Architecture
+Dependencies are managed with uv. If uv is not already installed, follow the instructions at https://docs.astral.sh/uv/getting-started/installation/, or use a standard virtual environment with pip instead by substituting pip install for uv pip install in the steps below.
+
+First, create and activate a virtual environment from the project root.
+
+```bash
+uv venv
+source .venv/bin/activate
+```
+
+Then install the project in editable mode.
+
+```bash
+uv pip install -e .
+```
+
+Once installed, the market-research command described in the Usage section becomes available inside this virtual environment.
+
+Next, create a file named .env in the project root with the following three keys.
+
+```env
+GOOGLE_API_KEY=your-gemini-developer-api-key
+TAVILY_API_KEY=your-tavily-api-key
+HF_TOKEN=your-huggingface-token
+```
+
+The Gemini key should be a plain Gemini Developer API key from Google AI Studio at https://aistudio.google.com/, not a Vertex AI service account credential. The Tavily key can be obtained from https://tavily.com/. The Hugging Face token can be created at https://huggingface.co/settings/tokens and needs Inference API access enabled.
+
+**Usage**
+
+Running the command with no arguments shows the most common available product categories and then prompts for one.
+
+```bash
+market-research
+```
+
+The category can also be given directly on the command line.
+
+```bash
+market-research --product "Sunglasses"
+market-research -p "T-Shirts"
+```
+
+Image generation is the slowest step and the one most likely to run into API quota limits, so it can be skipped for faster iteration during development.
+
+```bash
+market-research --skip-image
+```
+
+Here is an example run.
+
+```
+$ market-research --product "Watches" --skip-image
+Popular categories: T-Shirts, Shoes, Fashion Sneakers, Wrist Watches, Flats, ...
+
+Running market research on 'Watches'...
+
+Pipeline complete.
+Quote: Timeless retro design meets everyday versatility for the modern era.
+Report: output/campaign_summary_2026-09-21_00-54-51.md
+```
+
+The "Popular categories" list shown at startup and in this example comes from the product catalog described below. Every run writes a markdown report to the output folder, and also writes a generated campaign image there unless the skip image flag was used.
+
+**The product catalog**
+
+Product data is real. It is sourced from McAuley-Lab/Amazon-Reviews-2023 on Hugging Face (https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023), a public academic dataset built from real Amazon product listings. Categories are taken directly from each product's own category information rather than from keyword rules written for this project. Products are then filtered for quality. Each one must have a real price, a meaningful description, at least 25 ratings, and a rating of 3.5 or higher, and no more than five items from the same brand are kept per category, so the results stay varied.
+
+The file data/catalog.csv ships with the project and already contains 31 of the most common categories in the dataset, including T-Shirts, Shoes, Sunglasses, Wrist Watches, and Dresses, along with 200 curated products in each. The application is not limited to these 31 categories. Typing any other product category name at the prompt works as well, as long as it is a real category found in the underlying dataset. The first time a new category is requested, the application builds and caches a curated product list for it, which typically takes one to two minutes. Every request after that for the same category is instant. If the category entered is not recognized at all, the pipeline still runs. It simply skips the catalog matching step and relies on web research alone.
+
+To let the application build categories beyond the 31 that ship by default, download the raw dataset file and place it at data/raw/meta_Clothing_Shoes_and_Jewelry.jsonl. This file is large, currently about 18 gigabytes.
+
+```bash
+curl -L -o data/raw/meta_Clothing_Shoes_and_Jewelry.jsonl \
+  "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/resolve/main/raw/meta_categories/meta_Clothing_Shoes_and_Jewelry.jsonl"
+```
+
+Without this file, the application still works fully for the 31 categories that already ship in data/catalog.csv. It simply cannot expand beyond them.
+
+**Project structure**
 
 ```
 src/market_research/
-├── config.py           # env vars (.env), model name constants, paths
-├── state.py             # PipelineState TypedDict — shared state across graph nodes
-├── llm.py                # ALL Gemini calls go through here (generate/generate_text/generate_json)
+├── config.py              environment variables, model constants, and paths
+├── state.py               PipelineState, the shared state passed between graph nodes
+├── llm.py                 every Gemini call in the project goes through this module
+├── catalog_builder.py     builds and caches the product catalog on demand from raw data
 ├── tools/
-│   ├── catalog.py        # reads data/catalog.csv
-│   ├── search.py         # Tavily web search
-│   └── __init__.py       # tool registry: get_tools() + call_tool() dispatch
+│   ├── catalog.py         the product catalog tool available to the research agent
+│   ├── search.py          the Tavily web search tool available to the research agent
+│   └── __init__.py        registry of available tools
 ├── image_gen/
-│   └── hf_image.py       # Hugging Face FLUX.1-schnell image generation
+│   └── hf_image.py        Hugging Face image generation
 ├── agents/
-│   ├── market_research.py    # LangGraph SUBGRAPH: ReAct tool-calling loop (call_model <-> call_tools)
-│   ├── graphic_designer.py   # prompt+caption (Gemini JSON) -> image (HF)
-│   ├── copywriter.py         # multimodal (image+text) -> quote+justification
-│   └── packaging.py          # -> markdown report
-├── graph.py              # wires the 4 agents into one StateGraph, START->...->END
-└── cli.py                # typer entrypoint
+│   ├── market_research.py    the ReAct style tool calling research agent
+│   ├── graphic_designer.py   produces an image prompt and caption, then the image itself
+│   ├── copywriter.py         produces the campaign quote from the image and trend summary
+│   └── packaging.py          produces the final markdown executive report
+├── graph.py               wires the four agents together into one LangGraph pipeline
+└── cli.py                 the command line entry point
 
-data/catalog.csv          # 5 hardcoded sunglasses SKUs (moved out of Python code)
-study/                    # the ORIGINAL notebook + its helper .py files — reference only, not used by src/
+data/
+├── catalog.csv            the curated product catalog, committed to the repository (6,200 rows across 31 categories)
+├── category_index.json    a generated cache of available categories, not committed
+└── raw/                   the raw Amazon dataset and per category derived pools, not committed and roughly 24 gigabytes
+
+study/                     the original prototype notebook, kept only as reference and not used by src/
 ```
 
-Reading order for code review (bottom-up, dependency order): `config.py` →
-`state.py` → `llm.py` → `tools/catalog.py` + `tools/search.py` →
-`tools/__init__.py` → `agents/market_research.py` (the meaty one) →
-`agents/graphic_designer.py` → `agents/copywriter.py` → `agents/packaging.py`
-→ `graph.py` → `cli.py`.
+The project root also contains pyproject.toml, which defines the package and its dependencies, and a .env file that each user creates locally as described in Setup. The output folder mentioned in Usage is created automatically the first time the pipeline runs.
 
-## Key architectural decisions (and why — these were NOT the original plan)
+**Troubleshooting**
 
-The original plan was "use `aisuite` for multi-provider LLM flexibility,
-Gemini for text, Gemini native image-gen." Both parts changed after hitting
-real integration problems, verified against the user's actual API keys:
+If a run fails immediately with a message about a missing environment variable, the .env file described in Setup is either missing or missing one of the three required keys.
 
-1. **Dropped `aisuite` entirely.** Its `google:` provider only supports
-   Vertex AI (GCP project + service-account credentials), not a plain Gemini
-   Developer API key, which is what the user has. Later, `aisuite`'s pinned
-   `httpx<0.28` also blocked installing a `google-genai` SDK version new
-   enough to support `thought_signature` (a field the current Gemini API
-   requires for multi-turn function-calling — omitting it causes a
-   `400 INVALID_ARGUMENT`). All Gemini calls now go through the raw
-   `google-genai` SDK directly, wrapped in `llm.py`.
-2. **Image generation uses Hugging Face (`black-forest-labs/FLUX.1-schnell`
-   via `huggingface_hub.InferenceClient`), not Gemini.** Gemini's image
-   models returned `429 RESOURCE_EXHAUSTED` (0 free-tier quota) regardless
-   of client library — needs billing enabled on that Google Cloud project,
-   which the user didn't want to do yet.
-3. **`TEXT_MODEL` defaults to `gemini-flash-lite-latest`, not
-   `gemini-flash-latest`.** The non-lite alias currently resolves to
-   `gemini-3.8-flash`, whose free tier caps out at 20 requests/day —
-   exhausted mid-development in a single session. Override via the
-   `MARKET_RESEARCH_TEXT_MODEL` env var once billing is enabled.
-4. **`llm.py`'s `generate()` retries on `ServerError` (503).** Gemini
-   returned intermittent "high demand" 503s repeatedly during dev, including
-   on identical back-to-back requests — genuinely observed, not
-   hypothetical. 4 attempts, linear backoff.
-5. **Model names need the `-latest` alias, not dated names.** Verified
-   `gemini-2.5-flash` (a name from Claude's training data) is already
-   retired for new callers; the API redirects you to whatever's current.
-   Hardcoding dated model names will rot.
-6. **`automatic_function_calling` is explicitly disabled** in `llm.py`'s
-   config. We execute function/tool calls ourselves in
-   `agents/market_research.py`'s ReAct loop; the SDK has its own
-   auto-calling feature that would otherwise conflict/warn.
+Gemini occasionally returns a temporary server error under high demand. The project already retries these automatically, so an occasional delay before a response is expected behavior rather than a bug.
 
-## `.env` keys needed
+Anyone using an editor with Pyright or Pylance for type checking should point it at the project's own virtual environment interpreter. Running Pyright against this project without doing so will report missing imports for packages such as typer, rich, and google.genai even though they are installed, because it is resolving against the wrong Python environment rather than the project's own.
 
-`.env.example` was removed from the repo (deliberate — kept out of the
-GitHub publication). Required keys, set directly in a local `.env`:
+**Notes**
 
-- `GOOGLE_API_KEY` — plain Gemini Developer API key (not Vertex/GCP service account)
-- `TAVILY_API_KEY` — web search
-- `HF_TOKEN` — Hugging Face Inference API, for image generation
+There are no automated tests in this project. Verification has been done through real end to end runs against the live Gemini, Tavily, and Hugging Face APIs, checked by hand.
 
-All three are confirmed working live as of this build (tested with real
-calls, not just code review).
+**License**
 
-## Comment cleanup for GitHub publication — done
-
-The user reviewed the code file-by-file before pushing to GitHub and asked
-for comments to be trimmed to **concise, professional** style — not
-narrative/teaching explanations (that's what chat is for). One-line
-docstrings were added to previously-undocumented public functions across
-`llm.py`, `image_gen/hf_image.py`, `tools/__init__.py`,
-`agents/market_research.py`, `agents/graphic_designer.py`,
-`agents/copywriter.py`, `agents/packaging.py`, and `graph.py`.
-
-Note: `config.py`'s `require_keys` docstring and `state.py`'s comment on
-`messages: list[Any]` (explaining why it's typed `Any`) were trimmed/removed
-during the earlier manual pass and were left as-is by user decision — not
-re-added.
-
-## Known environment quirk (previously seen, since resolved)
-
-Partway through the comment-cleanup pass in an earlier session, all file
-access (Read tool, Edit tool, and even plain `cat`/`ls` via Bash — with
-sandbox explicitly disabled too) to the project directory started failing
-with `EPERM: operation not permitted`, eventually spreading from
-`src/market_research/` to the project root itself. The user confirmed
-*they* could read the same files fine in their own editor at the same
-time — so it wasn't a real permissions/corruption issue on the files, it
-was specific to whatever process executed that session's tool calls.
-Leading theory: a security/EDR tool on the user's Mac flagged the bulk
-file creation/editing earlier in the build (a dozen+ files written in
-quick succession into a brand-new directory) as suspicious process
-behavior and restricted that process's filesystem access.
-
-Confirmed resolved as of the next session (file read/write/bash all work
-normally again). **If it recurs:** tell the user plainly, ask them to
-check their security software's logs/quarantine, and retry after some
-time has passed — don't burn many turns re-diagnosing it, since it was
-already investigated at length (ruled out: file-specific permissions/
-ACLs/flags, sandbox-specific issue, content-pattern-based blocking like
-filenames containing "config" or the string "API_KEY").
-
-## Other things worth knowing
-
-- Python 3.14 (`.venv` in project root), dependency management via `uv`
-  (`uv pip install -e .`).
-- `pyproject.toml` uses PEP 621 + hatchling, src-layout, console-script
-  entry point `market-research`.
-- No automated tests exist — this was a deliberate scope decision (v1
-  verification = manual runs producing real output, checked by hand).
-  Documented in the plan file's Verification section.
-- `study/` directory is the original notebook/prototype — read-only
-  reference, not imported by anything in `src/`.
+There is no license file in this repository yet. Until one is added, the project should be treated as all rights reserved.
