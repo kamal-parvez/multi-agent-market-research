@@ -61,6 +61,7 @@ def _fingerprint(paths: list[Path]) -> dict[str, dict[str, float]]:
 
 
 def _iter_raw_lines(paths: list[Path]) -> Iterator[str]:
+    """Stream raw lines across multiple files in order."""
     for path in paths:
         with open(path) as f:
             yield from f
@@ -78,14 +79,17 @@ def _leaf_category(rec: dict) -> str | None:
 
 
 def _slug(category: str) -> str:
+    """Filesystem-safe slug for a category name."""
     return re.sub(r"[^a-z0-9]+", "_", category.strip().lower()).strip("_")
 
 
 def _pool_path(category: str) -> Path:
+    """Path to a category's cached raw pool file."""
     return RAW_CATEGORY_POOL_DIR / f"{_slug(category)}.jsonl"
 
 
 def _pool_meta_path(category: str) -> Path:
+    """Path to a category's pool fingerprint metadata file."""
     return RAW_CATEGORY_POOL_DIR / f"{_slug(category)}.meta.json"
 
 
@@ -100,6 +104,7 @@ def _pool_is_fresh(category: str) -> bool:
 
 
 def _write_pool_meta(category: str) -> None:
+    """Save the current raw-file fingerprint for a category's pool."""
     _pool_meta_path(category).write_text(json.dumps({"raw_fingerprint": _fingerprint(_raw_files())}, indent=2))
 
 

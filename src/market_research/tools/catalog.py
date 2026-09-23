@@ -8,6 +8,7 @@ from market_research.config import DEFAULT_CATALOG_PATH
 
 
 def load_catalog(path: Path = DEFAULT_CATALOG_PATH) -> pd.DataFrame:
+    """Read the catalog CSV into a DataFrame."""
     return pd.read_csv(path)
 
 

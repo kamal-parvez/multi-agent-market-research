@@ -20,6 +20,7 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
 
 
 def require_keys(*names: str) -> None:
+    """Raise if any of the named environment variables are unset."""
     missing = [n for n in names if not os.getenv(n)]
     if missing:
         raise EnvironmentError(

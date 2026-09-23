@@ -13,6 +13,7 @@ from market_research.state import PipelineState
 from market_research.tools import call_tool, get_tools
 
 def _system_instruction(product_category: str) -> str:
+    """Build the Gemini system prompt for the given product category."""
     return f"""
 You are a fashion market research agent preparing a trend analysis for a
 {product_category} campaign.
@@ -33,6 +34,7 @@ calls) summarizing:
 
 
 def _initial_messages(product_category: str) -> list[types.Content]:
+    """Build the first user message that kicks off the research loop."""
     today = datetime.now().strftime("%Y-%m-%d")
     prompt = f"Today's date is {today}. Begin your research on {product_category}."
     return [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
